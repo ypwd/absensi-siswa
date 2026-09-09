@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistem Absensi Pintar</title>
-  <link rel="icon" type="image/png" href="https://iili.io/CiMuwqN.png">
+  
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
   <script src="https://cdn.tailwindcss.com"></script>
@@ -97,6 +97,40 @@ async function callBackend(functionName, args) {
 }
 
 /* Emulator google.script.run agar kode frontend lama tetap bekerja di GitHub. */
+// ============================================================
+// NORMALISASI JAM ABSENSI - WIB / HH:mm:ss
+// Tidak menggunakan new Date() agar tidak terjadi pergeseran timezone.
+// ============================================================
+function formatJamAbsensi(value) {
+    if (value === null || value === undefined) return '-';
+
+    const s = String(value).trim();
+    if (!s || s === '-') return '-';
+
+    // ISO datetime: ambil jam yang dikirim backend tanpa konversi timezone.
+    let m = s.match(/T(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+        return String(m[1]).padStart(2, '0') + ':' + m[2] + ':' + (m[3] || '00');
+    }
+
+    // Format jam saja: H:mm, HH:mm, H:mm:ss, HH:mm:ss
+    m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/);
+    if (m) {
+        return String(m[1]).padStart(2, '0') + ':' + m[2] + ':' + (m[3] || '00');
+    }
+
+    // Jika ada tanggal + spasi sebelum jam, ambil bagian jamnya.
+    m = s.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
+    if (m) {
+        return String(m[1]).padStart(2, '0') + ':' + m[2] + ':' + (m[3] || '00');
+    }
+
+    return s;
+}
+
+function jamDatangWIB(value) { return formatJamAbsensi(value); }
+function jamPulangWIB(value) { return formatJamAbsensi(value); }
+
 (function() {
   function runner(success, failure) {
     return new Proxy({}, {
@@ -3230,8 +3264,8 @@ function dhRenderPulangTable() {
         const sudahDatang  = d && d.status === 'hadir' && d.jamDatang;
         const sudahPulang  = d && d.jamPulang && d.jamPulang.trim() !== '';
         const checked      = d && d.checked;
-        const jamDatangTxt = d && d.jamDatang ? d.jamDatang : '-';
-        const jamPulangTxt = sudahPulang ? d.jamPulang : '-';
+        const jamDatangTxt = d && d.jamDatang ? jamDatangWIB(d.jamDatang) : '-';
+        const jamPulangTxt = sudahPulang ? jamPulangWIB(d.jamPulang) : '-';
         const rowBg        = sudahPulang ? 'bg-green-50' : (sudahDatang ? 'bg-orange-50' : '');
         const isSemua = document.getElementById('dhKelasSelect').value === 'SEMUA';
         return `
@@ -3960,10 +3994,10 @@ function dhOnPulangResult(nisn, nama) {
                 notif.textContent = '✅ ' + res.nama + ' pulang — ' + res.jamPulang;
                 // Update lokal agar baris langsung berubah tanpa reload penuh
                 if (dhPulangMap[nisn]) {
-                    dhPulangMap[nisn].jamPulang = res.jamPulang;
+                    dhPulangMap[nisn].jamPulang = jamPulangWIB(res.jamPulang);
                     dhPulangMap[nisn].checked   = false;
                 } else {
-                    dhPulangMap[nisn] = { jamPulang: res.jamPulang, checked: false };
+                    dhPulangMap[nisn] = { jamPulang: jamPulangWIB(res.jamPulang), checked: false };
                 }
                 dhRenderPulangTable();
                 // Feedback ke popup scanner
@@ -4189,7 +4223,7 @@ function loadGuruDashboard() {
                     if (elAlert) { elAlert.classList.remove('hidden'); elAlert.classList.add('flex'); }
                 } else {
                     if (elAlert) { elAlert.classList.add('hidden'); elAlert.classList.remove('flex'); }
-                    if (elValMasuk) elValMasuk.textContent = absensi.jamDatang || "--:--";
+                    if (elValMasuk) elValMasuk.textContent = absensi.jamDatang ? jamDatangWIB(absensi.jamDatang) : "--:--";
                     
                     if (!absensi.jamPulang) {
                         if (elHero) elHero.className = "relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-800 p-6 text-white shadow-xl shadow-emerald-200 transition-all duration-500 group";
@@ -4204,7 +4238,7 @@ function loadGuruDashboard() {
                             elBadge.className = "px-4 py-2 rounded-xl bg-white/20 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-sm";
                             elBadge.innerHTML = `<i class="fas fa-check-circle mr-2"></i> SELESAI HARI INI`;
                         }
-                        if (elValPulang) elValPulang.textContent = absensi.jamPulang;
+                        if (elValPulang) elValPulang.textContent = jamPulangWIB(absensi.jamPulang);
                     }
                 }
             } catch (err) { console.error("Error rendering dashboard:", err); }
@@ -5427,8 +5461,8 @@ function renderRekapRows(data) {
                <span class="bg-gray-100 px-2 py-1 rounded text-xs font-bold">${d.kelas}</span>
             </td>
             
-            <td class="p-4 text-center text-sm font-mono text-gray-600">${d.jamDatang}</td>
-            <td class="p-4 text-center text-sm font-mono text-gray-600">${d.jamPulang}</td>
+            <td class="p-4 text-center text-sm font-mono text-gray-600">${jamDatangWIB(d.jamDatang)}</td>
+            <td class="p-4 text-center text-sm font-mono text-gray-600">${jamPulangWIB(d.jamPulang)}</td>
             
             <td class="p-4 text-center align-middle">
                <span class="${ketStyle} inline-block whitespace-nowrap">${ketIcon}${ketText}</span>
@@ -5613,9 +5647,9 @@ function renderMonitoringRows(data, startIdx) {
                 <span class="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-xs font-bold border border-indigo-100">${d.kelas}</span>
             </td>
             
-            <td class="p-4 text-center text-xs font-mono text-gray-600">${d.jamDatang}</td>
+            <td class="p-4 text-center text-xs font-mono text-gray-600">${jamDatangWIB(d.jamDatang)}</td>
             
-            <td class="p-4 text-center text-xs font-mono text-gray-600">${d.jamPulang}</td>
+            <td class="p-4 text-center text-xs font-mono text-gray-600">${jamPulangWIB(d.jamPulang)}</td>
 
             <td class="p-4 text-center align-middle">
                  <span class="${ketStyle} inline-block whitespace-nowrap">${ketIcon}${ketText}</span>
@@ -6476,7 +6510,7 @@ function onScanSuccess(decodedText) {
             `<div class="flex items-center gap-2 py-1 border-b border-gray-50">
                 <span class="text-emerald-500 text-xs">\u2713</span>
                 <div class="flex-1 text-left"><span class="font-semibold text-xs text-gray-800">${r.nama}</span> <span class="text-[10px] text-gray-400">(${r.kelas})</span></div>
-                <span class="text-[10px] text-gray-400 font-mono">${r.jamDatang || r.jamPulang || ''}</span>
+                <span class="text-[10px] text-gray-400 font-mono">${r.type === 'datang' ? jamDatangWIB(r.jamDatang) : jamPulangWIB(r.jamPulang)}</span>
                 <span class="text-[10px] px-1.5 py-0.5 rounded ${r.type==='datang' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">${r.type==='datang' ? 'Masuk' : 'Pulang'}</span>
             </div>`
         ).join('');
