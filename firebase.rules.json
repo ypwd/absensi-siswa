@@ -1,0 +1,145 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "schools": {
+      "$schoolId": {
+        "security": {
+          "users": {
+            "$uid": {
+              ".read": "auth != null && auth.uid === $uid",
+              ".write": "auth != null && auth.uid === $uid",
+              ".validate": "newData.hasChildren(['uid','role','active']) && newData.child('uid').val() === $uid"
+            }
+          },
+          "legacyUsers": {
+            ".read": false,
+            ".write": false
+          },
+          "legacyPiketUsers": {
+            ".read": false,
+            ".write": false
+          },
+          "sessions": {
+            ".read": false,
+            ".write": false
+          }
+        },
+        "shared": {
+          "students": {
+            ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() !== 'siswa'",
+            ".indexOn": [
+              "kelas",
+              "nama"
+            ],
+            "$nisn": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true && (root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() !== 'siswa' || root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('identifier').val() === $nisn)",
+              ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin'",
+              ".validate": "newData.hasChildren(['nisn','nama','kelas']) && newData.child('nisn').val() === $nisn"
+            }
+          },
+          "teachers": {
+            ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+            "$idGuru": {
+              ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin'",
+              ".validate": "newData.hasChildren(['idGuru','nama']) && newData.child('idGuru').val() === $idGuru"
+            }
+          },
+          "holidays": {
+            ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+            "$tanggal": {
+              ".write": "auth != null && (root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin' || root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'guru')",
+              ".validate": "newData.hasChildren(['tanggal']) && newData.child('tanggal').val() === $tanggal"
+            }
+          },
+          "config": {
+            ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+            ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin'"
+          },
+          "schoolSettings": {
+            ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+            ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin'"
+          }
+        },
+        "apps": {
+          "absensi_siswa": {
+            "attendance": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() !== 'siswa'",
+              ".indexOn": [
+                "tanggal",
+                "nisn",
+                "kelas",
+                "status"
+              ],
+              "$key": {
+                ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true && (root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() !== 'siswa' || data.child('nisn').val() === root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('identifier').val())",
+                ".write": "auth != null && (root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin' || root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'guru')",
+                ".validate": "newData.hasChildren(['tanggal','nisn','status'])"
+              }
+            },
+            "config": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+              ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin'"
+            }
+          },
+          "absensi_guru": {
+            "attendance": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+              ".indexOn": [
+                "tanggal",
+                "idGuru",
+                "kunciAbsensi"
+              ],
+              "$key": {
+                ".write": "auth != null && (root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin' || root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'guru')",
+                ".validate": "newData.hasChildren(['tanggal','idGuru'])"
+              }
+            }
+          },
+          "piket": {
+            "users": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+              "$userId": {
+                ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin'"
+              }
+            },
+            "jadwal": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+              "$id": {
+                ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin'"
+              }
+            },
+            "kejadian": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+              "$id": {
+                ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true"
+              }
+            },
+            "tugas": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+              "$id": {
+                ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true"
+              }
+            },
+            "absensiPetugas": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+              "$id": {
+                ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true"
+              }
+            },
+            "pesanHarian": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+              "$id": {
+                ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin'"
+              }
+            },
+            "settings": {
+              ".read": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('active').val() === true",
+              ".write": "auth != null && root.child('schools').child($schoolId).child('security').child('users').child(auth.uid).child('role').val() === 'admin'"
+            }
+          }
+        }
+      }
+    }
+  }
+}

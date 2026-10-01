@@ -1,0 +1,110 @@
+{
+  "schools": {
+    "SMKWD": {
+      "security": {
+        "users": {
+          "<firebaseUid>": {
+            "uid": "...",
+            "role": "admin|guru|siswa|petugas",
+            "active": true,
+            "identifier": "..."
+          }
+        },
+        "legacyUsers": "PRIVATE",
+        "legacyPiketUsers": "PRIVATE",
+        "sessions": "PRIVATE"
+      },
+      "shared": {
+        "students": {
+          "<NISN>": {
+            "nisn": "...",
+            "nama": "...",
+            "kelas": "...",
+            "jenisKelamin": "..."
+          }
+        },
+        "teachers": {
+          "<ID_GURU>": {
+            "idGuru": "...",
+            "nama": "...",
+            "jabatan": "...",
+            "mataPelajaran": "...",
+            "qrUrl": "..."
+          }
+        },
+        "holidays": {
+          "<YYYY-MM-DD>": {
+            "tanggal": "...",
+            "keterangan": "..."
+          }
+        },
+        "config": {
+          "mode_absen": "masuk_pulang",
+          "jam_masuk_mulai": "06:00",
+          "jam_masuk_akhir": "07:15",
+          "jam_pulang_mulai": "15:00",
+          "jam_pulang_akhir": "17:00",
+          "jadwal_harian": {
+            "1": {
+              "libur": false
+            }
+          }
+        }
+      },
+      "apps": {
+        "absensi_siswa": {
+          "attendance": {
+            "<YYYY-MM-DD>_<NISN>": {
+              "tanggal": "...",
+              "nisn": "...",
+              "nama": "...",
+              "kelas": "...",
+              "jamDatang": "...",
+              "jamPulang": "...",
+              "keterangan": "...",
+              "status": "Hadir"
+            }
+          },
+          "config": {}
+        },
+        "absensi_guru": {
+          "attendance": {
+            "<YYYY-MM-DD>_<ID_GURU>": {
+              "tanggal": "...",
+              "idGuru": "...",
+              "jamMasuk": "...",
+              "jamPulang": "...",
+              "latitude": 0,
+              "longitude": 0,
+              "jarakMeter": 0,
+              "kunciAbsensi": "..."
+            }
+          }
+        },
+        "piket": {
+          "users": {
+            "<USER_ID>": {}
+          },
+          "jadwal": {
+            "<JADWAL_ID>": {}
+          },
+          "kejadian": {
+            "<KEJADIAN_ID>": {}
+          },
+          "tugas": {
+            "<TUGAS_ID>": {}
+          },
+          "absensiPetugas": {
+            "<ABSENSI_ID>": {}
+          },
+          "pesanHarian": {
+            "<KEY>": {}
+          },
+          "settings": {
+            "<KEY>": "..."
+          }
+        }
+      }
+    }
+  }
+}
