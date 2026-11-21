@@ -1422,7 +1422,7 @@
                     <ul class="space-y-1.5 text-gray-600">
                         <li class="flex gap-2">
                             <span class="font-bold text-indigo-600 w-24 shrink-0">Hari Efektif :</span>
-                            <span>Jumlah total hari dalam bulan berjalan yang <b>sudah berlalu</b> dikurangi Hari Minggu dan Hari Libur Nasional. Hari masa depan (besok dst) tidak dihitung.</span>
+                            <span>Jumlah hari dalam bulan berjalan yang <b>sudah berlalu</b> dikurangi hari libur rutin (sesuai Pengaturan Waktu), Hari Libur, dan <b>kolom tanggal yang kosong</b> (tidak ada data absensi sama sekali, dianggap libur). Hari masa depan tidak dihitung. Sakit dan Izin tetap dihitung sebagai hari efektif.</span>
                         </li>
                         <li class="flex gap-2">
                             <span class="font-bold text-indigo-600 w-24 shrink-0">Status Alpha :</span>
@@ -5002,7 +5002,7 @@ function applyFilter() {
             btn.innerHTML = originalText;
 
             if (result.success) {
-                window.open(result.url, '_blank');
+                downloadFileFromUrl(result.url, result.filename);
                 showAlert('success', 'File Excel berhasil diunduh!');
             } else {
                 showAlert('error', result.message);
@@ -5219,7 +5219,7 @@ function exportMonitoringExcel() {
         btn.innerHTML = originalContent;
 
         if (result.success) {
-            window.open(result.url, '_blank');
+            downloadFileFromUrl(result.url, result.filename);
             showAlert('success', 'Data monitoring berhasil di-export!');
         } else {
             showAlert('error', result.message);
@@ -6850,7 +6850,7 @@ function exportRekapBulananExcel() {
         btn.disabled = false;
         btn.innerHTML = originalContent;
         if (result.success) {
-            window.open(result.url, '_blank');
+            downloadFileFromUrl(result.url, result.filename);
         } else {
             showAlert('error', result.message);
         }
@@ -7653,6 +7653,17 @@ function handleArchiveAndReset() {
             toggleIcon.classList.add('fa-eye');
         }
     }
+    // Unduh file (blob/URL) dengan nama file yang benar, bukan dibuka sebagai teks/script di tab baru
+    function downloadFileFromUrl(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'file.xlsx';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        if (String(url).startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
     function downloadTemplate(type) {
         // Tampilkan loading overlay
         showLoading();
@@ -7662,7 +7673,7 @@ function handleArchiveAndReset() {
                 hideLoading();
                 if (res.success) {
                     // Buka URL download di tab baru
-                    window.open(res.url, '_blank');
+                    downloadFileFromUrl(res.url, res.filename);
                     // Beri notifikasi (Opsional)
                     // showAlert('success', 'Template ' + type + ' berhasil diunduh');
                 } else {
