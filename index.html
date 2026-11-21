@@ -13,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -6828,39 +6829,156 @@ function renderRekapTable(result) {
 function exportRekapBulananExcel() {
     const btn = document.getElementById('btnExportRekap');
     const originalContent = btn.innerHTML;
-    const bulan = document.getElementById('rekapBulan').value;
-    const tahun = document.getElementById('rekapTahun').value;
-    
-    // AMBIL FILTER KELAS
+    const bulan = parseInt(document.getElementById('rekapBulan').value);
+    const tahun = parseInt(document.getElementById('rekapTahun').value);
+
     let kelas = document.getElementById('rekapKelas').value;
-    if (currentUser.role === 'guru' && currentUser.kelas) {
+    if (currentUser.role === 'guru' && currentUser.kelas && !kelas) {
         kelas = currentUser.kelas;
+    }
+
+    if (!window.ExcelJS) {
+        showAlert('error', 'Library ExcelJS belum termuat. Muat ulang halaman lalu coba lagi.');
+        return;
     }
 
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Loading...';
 
-    const filters = {
-        bulan: parseInt(bulan),
-        tahun: parseInt(tahun),
-        kelas: kelas // Kirim kelas yang dipilih
-    };
+    const restore = () => { btn.disabled = false; btn.innerHTML = originalContent; };
 
-    google.script.run.withSuccessHandler(result => {
-        btn.disabled = false;
-        btn.innerHTML = originalContent;
-        if (result.success) {
-            downloadFileFromUrl(result.url, result.filename);
-        } else {
-            showAlert('error', result.message);
+    google.script.run.withSuccessHandler(async res => {
+        try {
+            if (!res.success) { showAlert('error', res.message || 'Gagal mengambil data'); return; }
+            await buildRekapBulananXlsx(res.data, bulan, tahun, kelas);
+            showAlert('success', 'Rekap bulanan berhasil diunduh!');
+        } catch (e) {
+            showAlert('error', 'Gagal membuat file: ' + (e && e.message ? e.message : e));
+        } finally {
+            restore();
         }
     })
     .withFailureHandler(err => {
-        btn.disabled = false;
-        btn.innerHTML = originalContent;
+        restore();
         showAlert('error', 'Gagal: ' + err);
     })
-    .generateExcel('laporan_bulanan', filters);
+    .getMonthlyReportData(bulan, tahun, kelas);
+}
+
+async function buildRekapBulananXlsx(data, bulan, tahun, kelas) {
+    const NAMA_BULAN = ['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'];
+    const days = data.daysInMonth;
+    const colLetter = n => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+
+    const FILL = {
+        H: 'FF92D050', // hijau
+        S: 'FFFFFF00', // kuning
+        I: 'FFB085D9', // ungu
+        A: 'FFFF5050', // merah
+        L: 'FFE7E6E6'  // abu (libur / kosong)
+    };
+    const thin = { style: 'thin', color: { argb: 'FF000000' } };
+    const border = { top: thin, left: thin, bottom: thin, right: thin };
+    const solid = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(String(bulan + 1).padStart(2, '0') + '-' + tahun);
+
+    const firstDay = 4;                    // kolom D
+    const lastDay = firstDay + days - 1;
+    const cH = lastDay + 1, cS = lastDay + 2, cI = lastDay + 3, cA = lastDay + 4, cP = lastDay + 5;
+    const dFirst = colLetter(firstDay), dLast = colLetter(lastDay);
+
+    ws.getCell('A1').value = 'LAPORAN ABSENSI SISWA';
+    ws.getCell('A2').value = 'SMK WIDYA DIRGANTARA BANDUNG';
+    ws.getCell('A3').value = 'Bulan : ' + NAMA_BULAN[bulan] + ' ' + tahun + (kelas ? '   |   Kelas : ' + kelas : '');
+    ['A1', 'A2'].forEach(a => { ws.getCell(a).font = { bold: true, size: 13 }; ws.getCell(a).alignment = { horizontal: 'left' }; });
+    ws.getCell('A3').alignment = { horizontal: 'left' };
+
+    // Header (baris 4)
+    const headers = ['No', 'Nama Siswa', 'Kelas'];
+    for (let d = 1; d <= days; d++) headers.push(d);
+    headers.push('Hadir', 'Sakit', 'Ijin', 'Alpa', 'Prosentase Kehadiran');
+    const hr = ws.getRow(4);
+    headers.forEach((v, i) => {
+        const c = hr.getCell(i + 1);
+        c.value = v;
+        c.font = { bold: true };
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        c.border = border;
+        c.fill = solid('FFD9E1F2');
+    });
+    hr.height = 30;
+
+    // Isi
+    data.students.forEach((s, idx) => {
+        const r = 5 + idx;
+        const row = ws.getRow(r);
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = s.nama;
+        row.getCell(3).value = s.kelas || '';
+        [1, 2, 3].forEach(i => {
+            const c = row.getCell(i);
+            c.border = border;
+            c.alignment = { horizontal: i === 2 ? 'left' : 'center', vertical: 'middle' };
+        });
+
+        s.dailyCodes.forEach((day, di) => {
+            const code = day.code && day.code !== '-' ? day.code : 'L';   // sel kosong => L
+            const c = row.getCell(firstDay + di);
+            c.value = code;
+            c.alignment = { horizontal: 'center', vertical: 'middle' };
+            c.border = border;
+            c.fill = solid(FILL[code] || FILL.L);
+            if (code === 'L') c.font = { color: { argb: 'FF7F7F7F' } };
+        });
+
+        const rng = dFirst + r + ':' + dLast + r;
+        const st = s.stats;
+        const total = st.h + st.s + st.i + st.a;
+        const put = (col, formula, result, fmt) => {
+            const c = row.getCell(col);
+            c.value = { formula, result };
+            c.alignment = { horizontal: 'center', vertical: 'middle' };
+            c.border = border;
+            if (fmt) c.numFmt = fmt;
+        };
+        put(cH, 'COUNTIF(' + rng + ',"H")', st.h);
+        put(cS, 'COUNTIF(' + rng + ',"S")', st.s);
+        put(cI, 'COUNTIF(' + rng + ',"I")', st.i);
+        put(cA, 'COUNTIF(' + rng + ',"A")', st.a);
+        // Hari efektif = H+S+I+A (sel L / kosong tidak dihitung)
+        const hc = colLetter(cH) + r, sc = colLetter(cS) + r, ic = colLetter(cI) + r, ac = colLetter(cA) + r;
+        put(cP, 'IFERROR(' + hc + '/(' + hc + '+' + sc + '+' + ic + '+' + ac + ')*100,0)',
+            total ? (st.h / total * 100) : 0, '0.0"%"');
+    });
+
+    // Keterangan warna
+    const legendRow = 5 + data.students.length + 1;
+    ws.getCell('B' + legendRow).value = 'Keterangan:';
+    ws.getCell('B' + legendRow).font = { bold: true };
+    [['H', 'Hadir'], ['S', 'Sakit'], ['I', 'Ijin'], ['A', 'Alpa'], ['L', 'Libur / kosong (tidak dihitung)']].forEach((x, i) => {
+        const c = ws.getCell('B' + (legendRow + 1 + i));
+        c.value = x[0] + ' = ' + x[1];
+        c.fill = solid(FILL[x[0]]);
+        c.border = border;
+    });
+
+    // Lebar kolom & freeze
+    ws.getColumn(1).width = 6.4;
+    ws.getColumn(2).width = 28.9;
+    ws.getColumn(3).width = 10.7;
+    for (let c = firstDay; c <= lastDay; c++) ws.getColumn(c).width = 4.9;
+    [cH, cS, cI, cA].forEach(c => ws.getColumn(c).width = 8.3);
+    ws.getColumn(cP).width = 21;
+    ws.views = [{ state: 'frozen', xSplit: 3, ySplit: 4 }];
+    ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const namaKelas = (kelas ? String(kelas).replace(/[^\w\-]+/g, '_') : 'Semua_Kelas');
+    downloadFileFromUrl(url, 'Rekap_Absensi_' + namaKelas + '_' + NAMA_BULAN[bulan] + '_' + tahun + '.xlsx');
 }
 
 // ==========================================
